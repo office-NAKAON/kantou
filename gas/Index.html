@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>東京は50年後も日本の中心か</title>
+<style>
+  :root {
+    --navy: #1e2f52;
+    --sheet: #fffaf2;
+    --ink: #1c140c;
+    --muted: #5e564c;
+    --line: #1c140c;
+    --yellow: #ffe566;
+    --green: #18794a;
+    --green-soft: #e7f6ee;
+    --hard: #9d2c2c;
+    --hard-soft: #fdeeee;
+    --cond: #8a5a10;
+    --cond-soft: #fff4dc;
+    --paper: #f3ecdf;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 500px at 10% -10%, rgba(255, 229, 102, 0.16), transparent 50%),
+      var(--navy);
+    color: var(--ink);
+    font-family: "Yu Gothic UI", "Yu Gothic", "Hiragino Sans", "Meiryo", sans-serif;
+    line-height: 1.7;
+  }
+  button, input, textarea, select { font-family: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { width: min(980px, calc(100% - 28px)); margin: 28px auto 48px; }
+  .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: end; color: #f6f1e4; margin-bottom: 14px; }
+  .eyebrow { margin: 0; letter-spacing: 0.08em; font-size: 13px; opacity: 0.8; }
+  h1 { margin: 0; font-family: "Yu Mincho", "Hiragino Mincho ProN", "Yu Gothic", serif; font-weight: 700; font-size: 28px; }
+  .who { font-size: 14px; text-align: right; }
+  .sheet { background: var(--sheet); border: 2px solid #0e0c0a; box-shadow: var(--shadow); padding: 22px; }
+  .qbox { background: var(--yellow); border: 2px solid var(--line); padding: 16px 18px; margin-bottom: 18px; }
+  .question { margin: 0; font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; font-size: 22px; line-height: 1.5; font-weight: 700; }
+  .qsub { margin: 8px 0 0; font-size: 14px; font-weight: 700; }
+  h2 { margin: 0 0 8px; font-size: 20px; }
+  .lead { margin: 0 0 16px; color: var(--muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  input, select, textarea { width: 100%; background: white; border: 2px solid var(--line); padding: 10px 12px; font-size: 16px; }
+  textarea { min-height: 140px; resize: vertical; line-height: 1.7; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .btn { border: 2px solid var(--line); background: var(--yellow); padding: 10px 16px; font-size: 16px; font-weight: 700; }
+  .btn.secondary { background: white; }
+  .btn.green { background: var(--green); color: white; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .steps { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .step { border: 2px solid var(--line); padding: 4px 10px; font-size: 13px; background: white; }
+  .step.on { background: var(--yellow); font-weight: 700; }
+  .step.done { background: var(--green-soft); }
+  .choices { display: grid; gap: 8px; margin: 8px 0 14px; }
+  .choice { text-align: left; background: white; border: 2px solid var(--line); padding: 10px 12px; font-size: 16px; }
+  .choice[aria-pressed="true"] { font-weight: 700; }
+  .choice.ok[aria-pressed="true"] { background: var(--green-soft); }
+  .choice.hard[aria-pressed="true"] { background: var(--hard-soft); }
+  .choice.cond[aria-pressed="true"] { background: var(--cond-soft); }
+  .cards { display: grid; gap: 12px; }
+  .card { border: 2px solid var(--line); background: white; padding: 14px; }
+  .card.head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+  .card h3 { margin: 0 0 4px; font-size: 18px; }
+  .card p { margin: 0; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; border: 2px solid var(--line); padding: 2px 8px; font-size: 13px; font-weight: 700; background: white; white-space: nowrap; }
+  .tag.ok { background: var(--green-soft); color: var(--green); }
+  .tag.hard { background: var(--hard-soft); color: var(--hard); }
+  .tag.cond { background: var(--cond-soft); color: var(--cond); }
+  .tag.wait { background: var(--paper); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .partner { background: var(--paper); }
+  .prompt { margin-top: 12px; border: 2px solid var(--line); background: var(--yellow); padding: 12px 14px; }
+  .prompt strong { display: block; margin-bottom: 4px; }
+  .teacher-note { border: 2px dashed var(--line); background: white; padding: 14px; }
+  .names { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pill { border: 1px solid var(--line); padding: 2px 8px; font-size: 13px; background: var(--paper); }
+  .error { color: var(--hard); font-weight: 700; min-height: 1.4em; }
+  .past { white-space: pre-wrap; }
+  @media (max-width: 760px) {
+    .grid2, .split, .card.head { grid-template-columns: 1fr; display: grid; }
+    .question { font-size: 18px; }
+    h1 { font-size: 22px; }
+    .who { text-align: left; }
+    .topbar { display: grid; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">2年社会　地理的分野　関東地方</p>
+        <h1>自分のOPP</h1>
+      </div>
+      <div class="who" id="who">まだ入室していません</div>
+    </header>
+    <main class="sheet" id="app"></main>
+  </div>
+<script>
+const THEMES = [
+  { name: "自然", question: "このままいくと、東京はどうなるか", focus: "関東平野、埋立、約400年の拡大と、災害・気候・維持" },
+  { name: "機能", question: "50年後も人は東京に集まるか", focus: "政治・経済・文化・交通・情報の集中" },
+  { name: "空間", question: "これからも東京は、拡大し続けられるのか", focus: "過密、郊外への広がり、機能の分散" },
+  { name: "産業", question: "都心・千葉・北関東の分業は、50年後も持続可能か", focus: "考える・売る・発信する／運ぶ・支える／作る" },
+  { name: "地域", question: "東京は単独で生きていけるか", focus: "近郊農業と山間部。東京は一人では生きていけない" }
+];
+const STANCES = [
+  { id: "ok", label: "持続できる", cls: "ok" },
+  { id: "hard", label: "持続は難しい", cls: "hard" },
+  { id: "cond", label: "条件がそろえば持続できる", cls: "cond" }
+];
+const QUESTION = "東京は50年後も日本の中心として持続可能だろうか？";
+
+let me = null;
+let busy = false;
+let screen = "enter";
+let themeIndex = 0;
+let waveIndex = 0;
+let draftStance = "";
+let draftReason = "";
+let errorText = "";
+let poll = 0;
+
+function stanceMeta(id) {
+  return STANCES.find((item) => item.id === id) || { label: "未記入", cls: "wait" };
+}
+function escapeHtml(text) {
+  return String(text ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+function questionBox(sub) {
+  return `<section class="qbox" aria-label="中心の問い"><p class="question">${QUESTION}</p>${sub ? `<p class="qsub">${sub}</p>` : ""}</section>`;
+}
+function steps(current) {
+  return `<div class="steps">${["判断", "1人目", "2人目", "残す"].map((label, index) => {
+    const cls = index === current ? "step on" : index < current ? "step done" : "step";
+    return `<span class="${cls}">${label}</span>`;
+  }).join("")}</div>`;
+}
+function firstOpen() {
+  return me.themes.findIndex((theme) => !theme.finalStance);
+}
+function doneCount() {
+  return me.themes.filter((theme) => theme.finalStance).length;
+}
+function stopPoll() {
+  if (poll) clearInterval(poll);
+  poll = 0;
+}
+function startPoll() {
+  stopPoll();
+  poll = setInterval(refreshSilent, 5000);
+}
+function identity() {
+  return {
+    classNo: sessionStorage.getItem("kanto-class") || "",
+    number: sessionStorage.getItem("kanto-number") || "",
+    name: sessionStorage.getItem("kanto-name") || ""
+  };
+}
+function saveIdentity() {
+  sessionStorage.setItem("kanto-class", me.classNo);
+  sessionStorage.setItem("kanto-number", me.number);
+  sessionStorage.setItem("kanto-name", me.name);
+}
+function clearIdentity() {
+  sessionStorage.removeItem("kanto-class");
+  sessionStorage.removeItem("kanto-number");
+  sessionStorage.removeItem("kanto-name");
+}
+function callServer(action, extra) {
+  const payload = Object.assign({}, identity(), extra || {});
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler((err) => {
+        const message = String((err && err.message) || "通信に失敗しました").replace(/^Exception:\s*/, "");
+        reject(new Error(message));
+      })
+      .api(action, payload);
+  });
+}
+function applyMe(data) {
+  me = data.me;
+}
+async function refreshSilent() {
+  try {
+    const before = JSON.stringify(me.themes[themeIndex].waves[waveIndex]);
+    const data = await callServer("state");
+    applyMe(data);
+    const after = JSON.stringify(me.themes[themeIndex].waves[waveIndex]);
+    if (before !== after) {
+      const wave = me.themes[themeIndex].waves[waveIndex];
+      if (wave.state === "paired" || wave.state === "none") screen = "talk";
+      render();
+    }
+  } catch (e) {}
+}
+function resume() {
+  if (!me || !me.before) { screen = "opp"; return; }
+  for (let i = 0; i < me.themes.length; i += 1) {
+    const theme = me.themes[i];
+    if (theme.finalStance) continue;
+    themeIndex = i;
+    if (!theme.draftStance) { screen = "opp"; return; }
+    const found = [0, 1].find((wave) => ["waiting", "paired", "none"].includes(theme.waves[wave].state));
+    if (found !== undefined) {
+      waveIndex = found;
+      screen = theme.waves[found].state === "waiting" ? "wait" : "talk";
+      return;
+    }
+    if (theme.waves.every((wave) => wave.state === "done")) {
+      screen = "save";
+      draftStance = theme.draftStance;
+      draftReason = theme.draftReason;
+      return;
+    }
+    screen = "opp";
+    return;
+  }
+  screen = "opp";
+}
+function openWave(wave) {
+  waveIndex = wave;
+  const item = me.themes[themeIndex].waves[wave];
+  if (item.state === "waiting") screen = "wait";
+  else if (item.state === "paired" || item.state === "none") screen = "talk";
+  else if (item.state === "done" && wave === 1) {
+    screen = "save";
+    draftStance = me.themes[themeIndex].draftStance;
+    draftReason = me.themes[themeIndex].draftReason;
+  } else screen = "opp";
+}
+
+function render() {
+  stopPoll();
+  document.getElementById("who").textContent = me ? `2年${me.classNo}組　${me.number}番　${me.name}` : "まだ入室していません";
+  const views = { enter: viewEnter, opp: viewOpp, before: viewBefore, judge: viewJudge, wait: viewWait, talk: viewTalk, save: viewSave, after: viewAfter, reflect: viewReflect, record: viewRecord };
+  const app = document.getElementById("app");
+  app.innerHTML = (views[screen] || viewEnter)();
+  app.querySelectorAll("[data-act]").forEach((el) => el.addEventListener("click", () => act(el.dataset.act, el.dataset.arg)));
+  if (screen === "wait") startPoll();
+  window.scrollTo(0, 0);
+}
+
+function viewEnter() {
+  return `${questionBox("")}
+    <h2>自分のOPPを開く</h2>
+    <p class="lead">組と出席番号と氏名で、自分の記録を開きます。パスワードはありません。</p>
+    <div class="grid2">
+      <div><label for="classNo">組</label><select id="classNo">${[1,2,3,4,5,6].map((n) => `<option value="${n}">${n}組</option>`).join("")}</select></div>
+      <div><label for="number">出席番号</label><input id="number" inputmode="numeric" placeholder="例　15"></div>
+    </div>
+    <div style="margin-top:12px"><label for="name">氏名</label><input id="name" placeholder="例　青木 蓮"></div>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn" data-act="enter" type="button">OPPを開く</button></div>`;
+}
+
+function themeButton(index) {
+  const theme = me.themes[index];
+  if (theme.finalStance) return { label: "記録を見る", act: "record", enabled: true };
+  if (!me.before || index !== firstOpen()) return { label: "判断を書く", act: "judge", enabled: false };
+  if (!theme.draftStance) return { label: "判断を書く", act: "judge", enabled: true };
+  const wave0 = theme.waves[0];
+  const wave1 = theme.waves[1];
+  if (wave0.state === "waiting") return { label: "1人目を待つ", act: "wave0", enabled: true };
+  if (wave0.state === "paired" || wave0.state === "none") return { label: "1人目の続き", act: "wave0", enabled: true };
+  if (wave0.state === "idle") return { label: "1人目を見る", act: "wave0", enabled: true };
+  if (wave1.state === "waiting") return { label: "2人目を待つ", act: "wave1", enabled: true };
+  if (wave1.state === "paired" || wave1.state === "none") return { label: "2人目の続き", act: "wave1", enabled: true };
+  if (wave1.state === "idle") return { label: "2人目を見る", act: "wave1", enabled: true };
+  return { label: "判断を残す", act: "save", enabled: true };
+}
+
+function viewOpp() {
+  const cards = THEMES.map((theme, index) => {
+    const saved = me.themes[index];
+    const button = themeButton(index);
+    const tag = saved.finalStance
+      ? `<span class="tag ${stanceMeta(saved.finalStance).cls}">${stanceMeta(saved.finalStance).label}</span>`
+      : `<span class="tag wait">${index === firstOpen() && me.before ? "いまの回" : "まだ"}</span>`;
+    const body = saved.finalStance
+      ? `<p class="past" style="margin-top:8px">${escapeHtml(saved.finalReason)}</p><div class="names">${saved.waves.filter((wave) => wave.partnerName).map((wave) => `<span class="pill">${escapeHtml(wave.partnerName)}</span>`).join("")}</div>`
+      : `<p class="meta" style="margin-top:6px">${theme.focus}</p>`;
+    return `<article class="card"><div class="card head"><div><h3>${index + 1}　${theme.name}</h3><p>${theme.question}</p>${body}</div>${tag}</div><div class="actions"><button class="btn ${button.act === "record" ? "secondary" : ""}" data-act="${button.act}" data-arg="${index}" type="button" ${button.enabled ? "" : "disabled"}>${button.label}</button></div></article>`;
+  }).join("");
+  const talked = me.talked || [];
+  return `${questionBox("5つ、もう一度この問いに答えます。")}
+    <article class="card"><div class="card head"><div><h3>学習前</h3><p class="past">${me.before ? escapeHtml(me.before) : "まだ書いていません。"}</p></div><span class="tag ${me.before ? "ok" : "wait"}">${me.before ? "記入済み" : "最初に書く"}</span></div><div class="actions"><button class="btn ${me.before ? "secondary" : ""}" data-act="before" type="button">${me.before ? "書き直す" : "学習前を書く"}</button></div></article>
+    <div class="cards" style="margin-top:12px">${cards}</div>
+    <article class="card" style="margin-top:12px"><h3>話した相手　${talked.length}人</h3><p class="meta">5回で10人。同じ相手は出ません。${talked.length ? "" : "まだいません。"}</p><div class="names">${talked.map((person) => `<span class="pill">${escapeHtml(person.name)}</span>`).join("")}</div></article>
+    <div class="grid2" style="margin-top:12px">
+      <article class="card"><h3>学習後</h3><p class="meta">${doneCount() === 5 ? "5つの判断を見て、もう一度答えます。" : `5つの判断が残ると開けます。いま ${doneCount()}／5`}</p><div class="actions"><button class="btn" data-act="after" type="button" ${doneCount() === 5 ? "" : "disabled"}>学習後を書く</button></div></article>
+      <article class="card"><h3>比べる</h3><p class="meta">学習前と学習後を並べて、思ったこと、感じたことを書きます。</p><div class="actions"><button class="btn secondary" data-act="reflect" type="button" ${me.after ? "" : "disabled"}>比べて書く</button></div></article>
+    </div>
+    <p class="error">${escapeHtml(errorText)}</p>`;
+}
+
+function viewBefore() {
+  return `${questionBox("学習前の、いまの考えを書きます。")}
+    <h2>学習前</h2><p class="lead">授業で調べる前の考えです。あとから、学習後と比べます。</p>
+    <label for="beforeText">自分の答え</label><textarea id="beforeText">${escapeHtml(me.before)}</textarea>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn green" data-act="saveBefore" type="button">OPPに残す</button><button class="btn secondary" data-act="opp" type="button">戻る</button></div>`;
+}
+
+function viewJudge() {
+  const theme = THEMES[themeIndex];
+  return `${questionBox(`${themeIndex + 1}／5　${theme.name}`)}
+    ${steps(0)}
+    <h2>${theme.name}</h2><p class="lead">${theme.question}</p><p class="meta">授業で押さえたこと：${theme.focus}</p>
+    <label>立場を一つ選ぶ</label>
+    <div class="choices">${STANCES.map((item) => `<button type="button" class="choice ${item.cls}" data-act="pick" data-arg="${item.id}" aria-pressed="${draftStance === item.id}">${item.label}</button>`).join("")}</div>
+    <label for="reason">理由（今日押さえた事実を使う）</label><textarea id="reason">${escapeHtml(draftReason)}</textarea>
+    <p class="meta">書くまでは、相手の判断は見えません。</p>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn" data-act="toTalk" type="button">判断を書いて、1人目を見る</button><button class="btn secondary" data-act="opp" type="button">OPPへ戻る</button></div>`;
+}
+
+function viewWait() {
+  const theme = THEMES[themeIndex];
+  return `${questionBox(`${themeIndex + 1}／5　${theme.name}`)}
+    ${steps(waveIndex + 1)}
+    <h2>${waveIndex + 1}人目を待っています</h2>
+    <p class="lead">${theme.question}</p>
+    <article class="card"><p>同じクラスで判断を書き終えた人から、まだ話していない相手を組みます。数秒ごとに確認し、相手が決まるとここに表示されます。</p></article>
+    <div class="actions"><button class="btn secondary" data-act="opp" type="button">OPPへ戻る</button></div>`;
+}
+
+function talkPrompt(wave) {
+  const mine = stanceMeta(me.themes[themeIndex].draftStance).label;
+  if (wave.teacher) return "自分の立場と、根拠にした事実を先に話そう。先生の考えを聞いたあと、維持するか変えるかを決めます。";
+  if (wave.state === "none") return "書き終えた人とは、すでに話しています。この回の判断は、このあと残します。";
+  const theirs = stanceMeta(wave.partnerStance).label;
+  if (mine === theirs) return `二人とも「${mine}」です。根拠にした事実は同じですか。ちがう事実なら、それを聞いてみよう。`;
+  return `${wave.partnerName}さんは「${theirs}」です。あなたは「${mine}」です。${wave.partnerName}さんが見ている事実を聞いてみよう。`;
+}
+
+function viewTalk() {
+  const theme = THEMES[themeIndex];
+  const wave = me.themes[themeIndex].waves[waveIndex];
+  const mine = stanceMeta(me.themes[themeIndex].draftStance);
+  let right = "";
+  if (wave.teacher) {
+    right = `<article class="teacher-note"><h3>先生の判断は、出ません</h3><p>今日、判断を書いた人数が奇数です。余った一人の相手が先生です。先生と話すのは、10回のうち1回です。</p><p>先生のところへ行き、自分の判断を伝えて話しましょう。</p></article>`;
+  } else if (wave.state === "none") {
+    right = `<article class="teacher-note"><h3>今、話せる相手はいません</h3><p>まだ話していない人が、このクラスの中に残っていません。</p></article>`;
+  } else {
+    const theirs = stanceMeta(wave.partnerStance);
+    right = `<article class="card partner"><p class="meta">${escapeHtml(wave.partnerName)}さんの判断</p><p><span class="tag ${theirs.cls}">${theirs.label}</span></p><p class="past" style="margin-top:8px">${escapeHtml(wave.partnerReason || "")}</p></article>`;
+  }
+  const label = wave.state === "none" ? "次へ" : "話し終えた";
+  const next = waveIndex === 0 ? `${label}。2人目を見る` : `${label}。判断を残す`;
+  return `${questionBox(`${themeIndex + 1}／5　${theme.name}`)}
+    ${steps(waveIndex + 1)}
+    <h2>${waveIndex + 1}人目の相手　${escapeHtml(wave.partnerName || "未定")}</h2>
+    <p class="lead">${theme.question}</p>
+    <div class="split">
+      <article class="card"><p class="meta">あなたが最初に書いた判断</p><p><span class="tag ${mine.cls}">${mine.label}</span></p><p class="past" style="margin-top:8px">${escapeHtml(me.themes[themeIndex].draftReason)}</p></article>
+      ${right}
+    </div>
+    <div class="prompt"><strong>聞いてみよう</strong>${talkPrompt(wave)}</div>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn green" data-act="finishWave" type="button">${next}</button></div>`;
+}
+
+function viewSave() {
+  const theme = THEMES[themeIndex];
+  return `${questionBox(`${themeIndex + 1}／5　${theme.name}`)}
+    ${steps(3)}
+    <h2>OPPに残す判断</h2>
+    <p class="lead">2人と話したあとの考えです。最初の判断のままでも、変えてもよいです。</p>
+    <div class="choices">${STANCES.map((item) => `<button type="button" class="choice ${item.cls}" data-act="pick" data-arg="${item.id}" aria-pressed="${draftStance === item.id}">${item.label}</button>`).join("")}</div>
+    <label for="finalReason">理由</label><textarea id="finalReason">${escapeHtml(draftReason)}</textarea>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn green" data-act="commit" type="button">この判断を残す</button></div>`;
+}
+
+function viewAfter() {
+  const chips = THEMES.map((theme, index) => {
+    const meta = stanceMeta(me.themes[index].finalStance);
+    return `<span class="tag ${meta.cls}">${theme.name}　${meta.label}</span>`;
+  }).join(" ");
+  return `${questionBox("5つの判断を見たうえで、もう一度答えます。")}
+    <h2>学習後</h2><p class="lead">学習前の答えは、下に残してあります。</p>
+    <div class="names" style="margin-bottom:12px">${chips}</div>
+    <article class="card" style="margin-bottom:12px"><p class="meta">学習前</p><p class="past">${escapeHtml(me.before)}</p></article>
+    <label for="afterText">学習後の答え</label><textarea id="afterText">${escapeHtml(me.after)}</textarea>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn green" data-act="saveAfter" type="button">OPPに残す</button><button class="btn secondary" data-act="opp" type="button">戻る</button></div>`;
+}
+
+function viewReflect() {
+  return `${questionBox("学習前と学習後をくらべます。")}
+    <h2>思ったこと、感じたこと</h2>
+    <div class="split"><article class="card"><p class="meta">学習前</p><p class="past">${escapeHtml(me.before)}</p></article><article class="card"><p class="meta">学習後</p><p class="past">${escapeHtml(me.after)}</p></article></div>
+    <label for="reflectText" style="margin-top:12px">くらべて気づいたこと</label><textarea id="reflectText">${escapeHtml(me.reflect)}</textarea>
+    <p class="error">${escapeHtml(errorText)}</p>
+    <div class="actions"><button class="btn green" data-act="saveReflect" type="button">OPPに残す</button><button class="btn secondary" data-act="opp" type="button">戻る</button></div>`;
+}
+
+function viewRecord() {
+  const theme = THEMES[themeIndex];
+  const saved = me.themes[themeIndex];
+  const meta = stanceMeta(saved.finalStance);
+  return `${questionBox(`${themeIndex + 1}／5　${theme.name}`)}
+    <h2>${theme.name}の記録</h2><p>${theme.question}</p>
+    <p><span class="tag ${meta.cls}">${meta.label}</span></p>
+    <p class="past">${escapeHtml(saved.finalReason)}</p>
+    <p class="meta">話した相手</p>
+    <div class="names">${saved.waves.filter((wave) => wave.partnerName).map((wave) => `<span class="pill">${escapeHtml(wave.partnerName)}</span>`).join("")}</div>
+    <div class="actions"><button class="btn secondary" data-act="opp" type="button">OPPへ戻る</button></div>`;
+}
+
+function keepDraft() {
+  const reason = document.getElementById("reason") || document.getElementById("finalReason");
+  if (reason) draftReason = reason.value;
+}
+
+async function act(name, arg) {
+  if (name === "pick") {
+    draftStance = arg;
+    keepDraft();
+    render();
+    return;
+  }
+  if (busy) return;
+  busy = true;
+  errorText = "";
+  try {
+    if (name === "enter") {
+      const data = await callServer("enter", {
+        classNo: document.getElementById("classNo").value,
+        number: document.getElementById("number").value,
+        name: document.getElementById("name").value
+      });
+      applyMe(data);
+      saveIdentity();
+      screen = "opp";
+      resume();
+    } else if (name === "opp") screen = "opp";
+    else if (name === "before") screen = "before";
+    else if (name === "saveBefore") {
+      const data = await callServer("before", { text: document.getElementById("beforeText").value });
+      applyMe(data);
+      screen = "opp";
+    } else if (name === "judge") {
+      themeIndex = Number(arg);
+      draftStance = "";
+      draftReason = "";
+      screen = "judge";
+    } else if (name === "toTalk") {
+      draftReason = document.getElementById("reason").value.trim();
+      if (!draftStance || !draftReason) throw new Error("立場と理由を書いてから、相手を見てください。");
+      try {
+        applyMe(await callServer("judge", { theme: themeIndex, stance: draftStance, reason: draftReason }));
+      } catch (error) {
+        if (!String(error.message).includes("すでに")) throw error;
+      }
+      applyMe(await callServer("wave", { theme: themeIndex, wave: 0 }));
+      openWave(0);
+    } else if (name === "wave0" || name === "wave1") {
+      themeIndex = Number(arg);
+      const wave = name === "wave0" ? 0 : 1;
+      if (me.themes[themeIndex].waves[wave].state === "idle") {
+        applyMe(await callServer("wave", { theme: themeIndex, wave }));
+      }
+      openWave(wave);
+    } else if (name === "finishWave") {
+      applyMe(await callServer("finish", { theme: themeIndex, wave: waveIndex }));
+      if (waveIndex === 0) {
+        applyMe(await callServer("wave", { theme: themeIndex, wave: 1 }));
+        openWave(1);
+      } else {
+        draftStance = me.themes[themeIndex].draftStance;
+        draftReason = me.themes[themeIndex].draftReason;
+        screen = "save";
+      }
+    } else if (name === "save") {
+      themeIndex = Number(arg);
+      draftStance = me.themes[themeIndex].draftStance;
+      draftReason = me.themes[themeIndex].draftReason;
+      screen = "save";
+    } else if (name === "commit") {
+      draftReason = document.getElementById("finalReason").value.trim();
+      if (!draftStance || !draftReason) throw new Error("立場と理由を残してください。");
+      applyMe(await callServer("commit", { theme: themeIndex, stance: draftStance, reason: draftReason }));
+      screen = "opp";
+    } else if (name === "record") {
+      themeIndex = Number(arg);
+      screen = "record";
+    } else if (name === "after") screen = "after";
+    else if (name === "saveAfter") {
+      applyMe(await callServer("after", { text: document.getElementById("afterText").value }));
+      screen = "opp";
+    } else if (name === "reflect") screen = "reflect";
+    else if (name === "saveReflect") {
+      applyMe(await callServer("reflect", { text: document.getElementById("reflectText").value }));
+      screen = "opp";
+    }
+  } catch (error) {
+    errorText = String(error.message || "通信に失敗しました").replace(/^Exception:\s*/, "");
+  }
+  busy = false;
+  render();
+}
+
+async function boot() {
+  if (!identity().number) { render(); return; }
+  try {
+    applyMe(await callServer("state"));
+    resume();
+  } catch (e) {
+    clearIdentity();
+    me = null;
+    screen = "enter";
+  }
+  render();
+}
+boot();
+</script>
+</body>
+</html>
