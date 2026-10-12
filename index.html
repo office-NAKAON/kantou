@@ -98,7 +98,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">2年社会　地理的分野　関東地方</p>
-        <h1>自分のOPP</h1>
+        <h1>デジタルOPPシート</h1>
       </div>
       <div class="who" id="who">まだ入室していません</div>
     </header>
@@ -106,11 +106,11 @@
   </div>
 <script>
 const THEMES = [
-  { name: "自然", question: "このままいくと、東京はどうなるか", focus: "関東平野、埋立、約400年の拡大と、災害・気候・維持" },
-  { name: "機能", question: "50年後も人は東京に集まるか", focus: "政治・経済・文化・交通・情報の集中" },
-  { name: "空間", question: "これからも東京は、拡大し続けられるのか", focus: "過密、郊外への広がり、機能の分散" },
-  { name: "産業", question: "都心・千葉・北関東の分業は、50年後も持続可能か", focus: "考える・売る・発信する／運ぶ・支える／作る" },
-  { name: "地域", question: "東京は単独で生きていけるか", focus: "近郊農業と山間部。東京は一人では生きていけない" }
+  { name: "自然", question: "このままいくと、東京はどうなる？", focus: "広大な平野という恩恵の一方で、低地に集中する都市機能やヒートアイランド・水害リスクは、50年後の環境変動に耐えられるか。" },
+  { name: "機能", question: "50年後も人は東京に集まるのか？", focus: "集積による圧倒的な利便性の一方で、過密の脆さ（災害時等）や、デジタル化の中で「わざわざ東京に集まる意味」はどう変わるか。" },
+  { name: "空間", question: "これからも東京は、拡大し続けられるのか？", focus: "人口増加期に外へ広げたニュータウンの衰退や老朽化が進む中、広がりすぎた大都市圏のインフラを維持し続けられるか。" },
+  { name: "産業", question: "東京は単独で生きていけるのか？ 【工業・第３次産業編】", focus: "北関東（生産）と東京（頭脳・情報）のチームプレーで稼ぐ仕組みは、人口減少社会や脱炭素・AI時代でも通用するか。" },
+  { name: "地域", question: "東京は単独で生きていけるのか？ 【農業編】", focus: "東京の「食」や「環境」を支える周辺地域との持ちつ持たれつの関係を保ち、過疎と過密のアンバランスを解消できるか。" }
 ];
 const STANCES = [
   { id: "ok", label: "持続できる", cls: "ok" },
@@ -120,6 +120,10 @@ const STANCES = [
 const QUESTION = "東京は50年後も日本の中心として持続可能だろうか？";
 
 let token = sessionStorage.getItem("kanto-opp-token") || "";
+let roster = [];
+let rosterClass = "1";
+let rosterPick = "";
+let rosterLoading = false;
 let me = null;
 let screen = "enter";
 let themeIndex = 0;
@@ -168,6 +172,29 @@ async function api(path, body) {
   try { data = await res.json(); } catch (e) {}
   if (!res.ok) throw new Error(data.error || "通信に失敗しました");
   return data;
+}
+function fourDigits(value) {
+  return String(value ?? "").trim().replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+}
+function chosenStudent() {
+  const number = document.getElementById("student").value;
+  return roster.find((student) => student.number === number);
+}
+async function loadRoster(classNo) {
+  rosterClass = classNo;
+  roster = [];
+  rosterLoading = true;
+  if (screen === "enter") render();
+  try {
+    const data = await api("/api/roster", { classNo });
+    if (rosterClass !== classNo) return;
+    roster = data.students || [];
+  } catch (error) {
+    if (rosterClass !== classNo) return;
+    errorText = error.message || "名簿を読み込めませんでした";
+  }
+  rosterLoading = false;
+  if (screen === "enter") render();
 }
 function applyMe(data) {
   me = data.me;
@@ -227,20 +254,26 @@ function render() {
   const views = { enter: viewEnter, opp: viewOpp, before: viewBefore, judge: viewJudge, wait: viewWait, talk: viewTalk, save: viewSave, after: viewAfter, reflect: viewReflect, record: viewRecord };
   const app = document.getElementById("app");
   app.innerHTML = (views[screen] || viewEnter)();
-  app.querySelectorAll("[data-act]").forEach((el) => el.addEventListener("click", () => act(el.dataset.act, el.dataset.arg)));
+  app.querySelectorAll("[data-act]").forEach((el) => {
+    const eventName = el.dataset.act === "class" ? "change" : "click";
+    el.addEventListener(eventName, () => act(el.dataset.act, el.dataset.arg));
+  });
   if (screen === "wait") startPoll();
   window.scrollTo(0, 0);
 }
 
 function viewEnter() {
+  const nameOptions = rosterLoading
+    ? `<option value="">読み込んでいます</option>`
+    : `<option value="">${roster.length ? "選んでください" : "この組の名簿はありません"}</option>${roster.map((student) => `<option value="${escapeHtml(student.number)}"${student.number === rosterPick ? " selected" : ""}>${escapeHtml(student.number)}番　${escapeHtml(student.name)}</option>`).join("")}`;
   return `${questionBox("")}
     <h2>自分のOPPを開く</h2>
-    <p class="lead">組と出席番号と氏名で、自分の記録を開きます。パスワードはありません。</p>
+    <p class="lead">組を選ぶと、名簿の氏名が出ます。自分の氏名と、先生からもらった4桁のパスワードを入れて開きます。</p>
     <div class="grid2">
-      <div><label for="classNo">組</label><select id="classNo">${[1,2,3,4,5,6].map((n) => `<option value="${n}">${n}組</option>`).join("")}</select></div>
-      <div><label for="number">出席番号</label><input id="number" inputmode="numeric" placeholder="例　15"></div>
+      <div><label for="classNo">組</label><select id="classNo" data-act="class">${[1,2,3,4,5,6].map((n) => `<option value="${n}"${String(n) === String(rosterClass) ? " selected" : ""}>${n}組</option>`).join("")}</select></div>
+      <div><label for="student">氏名</label><select id="student">${nameOptions}</select></div>
     </div>
-    <div style="margin-top:12px"><label for="name">氏名</label><input id="name" placeholder="例　青木 蓮"></div>
+    <div style="margin-top:12px"><label for="password">パスワード</label><input id="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4桁"></div>
     <p class="error">${escapeHtml(errorText)}</p>
     <div class="actions"><button class="btn" data-act="enter" type="button">OPPを開く</button></div>`;
 }
@@ -274,7 +307,7 @@ function viewOpp() {
     return `<article class="card"><div class="card head"><div><h3>${index + 1}　${theme.name}</h3><p>${theme.question}</p>${body}</div>${tag}</div><div class="actions"><button class="btn ${button.act === "record" ? "secondary" : ""}" data-act="${button.act}" data-arg="${index}" type="button" ${button.enabled ? "" : "disabled"}>${button.label}</button></div></article>`;
   }).join("");
   const talked = me.talked || [];
-  return `${questionBox("5つ、もう一度この問いに答えます。")}
+  return `${questionBox("5つの視点から50年後の東京を予測しよう")}
     <article class="card"><div class="card head"><div><h3>学習前</h3><p class="past">${me.before ? escapeHtml(me.before) : "まだ書いていません。"}</p></div><span class="tag ${me.before ? "ok" : "wait"}">${me.before ? "記入済み" : "最初に書く"}</span></div><div class="actions"><button class="btn ${me.before ? "secondary" : ""}" data-act="before" type="button">${me.before ? "書き直す" : "学習前を書く"}</button></div></article>
     <div class="cards" style="margin-top:12px">${cards}</div>
     <article class="card" style="margin-top:12px"><h3>話した相手　${talked.length}人</h3><p class="meta">5回で10人。同じ相手は出ません。${talked.length ? "" : "まだいません。"}</p><div class="names">${talked.map((person) => `<span class="pill">${escapeHtml(person.name)}</span>`).join("")}</div></article>
@@ -415,11 +448,23 @@ async function act(name, arg) {
       render();
       return;
     }
+    if (name === "class") {
+      errorText = "";
+      rosterPick = "";
+      loadRoster(document.getElementById("classNo").value);
+      return;
+    }
     if (name === "enter") {
+      const chosen = chosenStudent();
+      const password = fourDigits(document.getElementById("password").value);
+      rosterPick = chosen ? chosen.number : "";
+      if (!chosen) throw new Error("氏名を選んでください");
+      if (!/^\d{4}$/.test(password)) throw new Error("パスワードは4桁の数字です");
       const data = await api("/api/enter", {
         classNo: document.getElementById("classNo").value,
-        number: document.getElementById("number").value,
-        name: document.getElementById("name").value
+        number: chosen.number,
+        name: chosen.name,
+        password
       });
       token = data.token;
       sessionStorage.setItem("kanto-opp-token", token);
@@ -493,7 +538,12 @@ async function act(name, arg) {
 }
 
 async function boot() {
-  if (!token) { render(); return; }
+  if (!token) {
+    screen = "enter";
+    render();
+    loadRoster(rosterClass);
+    return;
+  }
   try {
     applyMe(await api("/api/state"));
     resume();
@@ -504,6 +554,7 @@ async function boot() {
     screen = "enter";
   }
   render();
+  if (screen === "enter") loadRoster(rosterClass);
 }
 boot();
 </script>

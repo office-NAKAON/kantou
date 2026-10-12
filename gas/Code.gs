@@ -36,7 +36,7 @@ var STATE_ID = {
   "終了": "done",
   "相手なし": "none"
 };
-var STUDENT_HEADERS = ["組", "番号", "氏名", "学習前", "学習後", "比べたこと"];
+var STUDENT_HEADERS = ["組", "番号", "氏名", "学習前", "学習後", "比べたこと", "パスワード"];
 var JUDGE_HEADERS = ["組", "番号", "氏名", "回", "見方", "最初の立場", "最初の理由", "残した立場", "残した理由", "1人目状態", "1人目", "1人目番号", "2人目状態", "2人目", "2人目番号"];
 
 function doGet() {
@@ -48,14 +48,15 @@ function doGet() {
 }
 
 function api(action, payload) {
-  var writing = action !== "state";
+  var reading = action === "state" || action === "roster";
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(writing ? 20000 : 3000)) {
-    throw new Error(writing ? "いま混み合っています。もう一度押してください。" : "待ち");
+  if (!lock.tryLock(reading ? 3000 : 20000)) {
+    throw new Error(reading ? "待ち" : "いま混み合っています。もう一度押してください。");
   }
   try {
     ensureSheets_();
     var body = payload || {};
+    if (action === "roster") return handleRoster_(body);
     if (action === "enter") return handleEnter_(body);
     var found = locate_(body);
     if (action === "state") return { me: viewStudent_(found) };
@@ -94,11 +95,22 @@ function ensureSheet_(name, headers) {
   var ss = spreadsheet_();
   var sheet = ss.getSheetByName(name);
   if (!sheet) sheet = ss.insertSheet(name);
-  if (String(sheet.getRange(1, 1).getValue()) !== headers[0]) {
-    if (sheet.getLastRow() > 0) throw new Error(name + "シートの1行目が見出しではありません");
+  var width = Math.max(sheet.getLastColumn(), headers.length, 1);
+  var current = sheet.getRange(1, 1, 1, width).getValues()[0];
+  if (!sheet.getLastRow() && !String(current[0] || "")) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold").setBackground("#ffe566");
     sheet.setFrozenRows(1);
+  } else if (String(current[0] || "") !== headers[0]) {
+    throw new Error(name + "シートの1行目が見出しではありません");
+  } else {
+    for (var c = 0; c < headers.length; c++) {
+      var found = String(current[c] || "");
+      if (found === headers[c]) continue;
+      if (found) throw new Error(name + "シートの見出しが違います");
+      sheet.getRange(1, c + 1).setValue(headers[c]).setFontWeight("bold").setBackground("#ffe566");
+    }
   }
+  if (name === "生徒") sheet.getRange("G:G").setNumberFormat("@");
   return sheet;
 }
 
@@ -112,6 +124,44 @@ function normNumber_(value) {
 function normClass_(value) {
   var text = String(value === null || value === undefined ? "" : value).trim();
   return /^[1-6]$/.test(text) ? text : "";
+}
+
+function normPassword_(value) {
+  if (typeof value === "number" && isFinite(value) && value >= 0 && value <= 9999 && Math.floor(value) === value) {
+    return ("0000" + String(value)).slice(-4);
+  }
+  var text = String(value === null || value === undefined ? "" : value).trim().replace(/[０-９]/g, function(ch) {
+    return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+  });
+  return /^\d{4}$/.test(text) ? text : "";
+}
+
+function passwordAttempts_(student, update) {
+  var key = "pw:" + student.classNo + ":" + student.number;
+  try {
+    var cache = CacheService.getScriptCache();
+    if (update === "clear") {
+      cache.remove(key);
+      return 0;
+    }
+    var fails = Number(cache.get(key) || "0");
+    if (update === "read") return fails;
+    fails += 1;
+    cache.put(key, String(fails), 300);
+    return fails;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function assertPassword_(student, password) {
+  if (!student.password) throw new Error("パスワードがまだ設定されていません。先生に確認してください。");
+  if (passwordAttempts_(student, "read") >= 5) throw new Error("しばらく待ってから、もう一度入れてください");
+  if (student.password !== password) {
+    passwordAttempts_(student, "add");
+    throw new Error("パスワードが違います");
+  }
+  passwordAttempts_(student, "clear");
 }
 
 function clip_(value, max) {
@@ -147,6 +197,7 @@ function emptyStudent_(classNo, number, name) {
     before: "",
     after: "",
     reflect: "",
+    password: "",
     dirty: false,
     talkedWith: [],
     themes: [emptyTheme_(), emptyTheme_(), emptyTheme_(), emptyTheme_(), emptyTheme_()]
@@ -185,6 +236,7 @@ function loadClass_(classNo) {
     student.before = String(row[3] || "");
     student.after = String(row[4] || "");
     student.reflect = String(row[5] || "");
+    student.password = normPassword_(row[6]);
     students[number] = student;
   }
 
@@ -284,27 +336,39 @@ function locate_(body) {
   var classNo = normClass_(body.classNo);
   var number = normNumber_(body.number);
   var name = clip_(body.name, 40);
-  if (!classNo || !number || !name) throw new Error("もう一度入り直してください");
+  var password = normPassword_(body.password);
+  if (!classNo || !number || !name || !password) throw new Error("もう一度入り直してください");
   var cls = loadClass_(classNo);
   var student = cls.students[number];
   if (!student || student.name !== name) throw new Error("もう一度入り直してください");
+  assertPassword_(student, password);
   return { classNo: classNo, number: number, student: student, cls: cls };
+}
+
+function handleRoster_(body) {
+  var classNo = normClass_(body.classNo);
+  if (!classNo) throw new Error("組を選んでください");
+  var cls = loadClass_(classNo);
+  var students = Object.keys(cls.students).map(function(id) {
+    return { number: cls.students[id].number, name: cls.students[id].name };
+  }).filter(function(student) {
+    return student.number && student.name;
+  }).sort(function(a, b) {
+    return Number(a.number) - Number(b.number);
+  });
+  return { students: students };
 }
 
 function handleEnter_(body) {
   var classNo = normClass_(body.classNo);
   var number = normNumber_(body.number);
   var name = clip_(body.name, 40);
-  if (!classNo || !number || !name) throw new Error("組、出席番号、氏名を入れてください");
+  var password = normPassword_(body.password);
+  if (!classNo || !number || !name || !password) throw new Error("組、氏名、4桁のパスワードを入れてください");
   var cls = loadClass_(classNo);
   var existing = cls.students[number];
-  if (existing && existing.name !== name) throw new Error("この出席番号は、別の氏名で使われています");
-  if (!existing) {
-    existing = emptyStudent_(classNo, number, name);
-    existing.dirty = true;
-    cls.students[number] = existing;
-    saveStudent_(existing);
-  }
+  if (!existing || existing.name !== name) throw new Error("名簿にありません");
+  assertPassword_(existing, password);
   return { me: viewStudent_({ classNo: classNo, number: number, student: existing, cls: cls }) };
 }
 

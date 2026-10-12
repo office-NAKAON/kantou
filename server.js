@@ -76,6 +76,27 @@ function normClass(value) {
   return text;
 }
 
+function normPassword(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 9999) {
+    return String(value).padStart(4, "0");
+  }
+  const text = String(value ?? "").trim().replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+  return /^\d{4}$/.test(text) ? text : "";
+}
+
+const passwordFails = {};
+
+function assertPassword(classNo, number, expected, given) {
+  const key = `${classNo}:${number}`;
+  const fails = passwordFails[key] || 0;
+  if (fails >= 5) fail(429, "しばらく待ってから、もう一度入れてください");
+  if (expected !== given) {
+    passwordFails[key] = fails + 1;
+    fail(400, "パスワードが違います");
+  }
+  delete passwordFails[key];
+}
+
 function clip(value, max) {
   return String(value ?? "").trim().slice(0, max);
 }
@@ -233,11 +254,27 @@ function assertReady(student, themeIndex) {
   }
 }
 
+function handleRoster(body) {
+  const classNo = normClass(body.classNo);
+  if (!classNo) fail(400, "組を選んでください");
+  const students = ((store.roster && store.roster[classNo]) || [])
+    .map((item) => ({ number: normNumber(item.number), name: clip(item.name, 40) }))
+    .filter((item) => item.number && item.name)
+    .sort((a, b) => Number(a.number) - Number(b.number));
+  return { students };
+}
+
 function handleEnter(body) {
   const classNo = normClass(body.classNo);
   const number = normNumber(body.number);
   const name = clip(body.name, 40);
-  if (!classNo || !number || !name) fail(400, "組、出席番号、氏名を入れてください");
+  const password = normPassword(body.password);
+  if (!classNo || !number || !name || !password) fail(400, "組、氏名、4桁のパスワードを入れてください");
+  const listed = ((store.roster && store.roster[classNo]) || []).find((item) => normNumber(item.number) === number && clip(item.name, 40) === name);
+  if (!listed) fail(400, "名簿にありません");
+  const expected = normPassword(listed.password);
+  if (!expected) fail(400, "パスワードがまだ設定されていません。先生に確認してください。");
+  assertPassword(classNo, number, expected, password);
   const cls = classOf(classNo);
   const existing = cls.students[number];
   if (existing && existing.name !== name) fail(409, "この出席番号は、別の氏名で使われています");
@@ -388,6 +425,10 @@ const server = http.createServer((req, res) => {
     try {
       const body = req.method === "POST" ? await readBody(req) : {};
       const token = req.headers["x-token"];
+      if (url.pathname === "/api/roster" && req.method === "POST") {
+        sendJson(res, 200, handleRoster(body));
+        return;
+      }
       if (url.pathname === "/api/enter" && req.method === "POST") {
         sendJson(res, 200, handleEnter(body));
         return;
