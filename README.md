@@ -56,6 +56,11 @@ APIキーは使いません。生徒の書き込みは、先生のGoogleスプ�
 | `gas/Index.html` | 生徒の画面 |
 | `gas/appsscript.json` | GASの設定 |
 | `.clasp.json` | clasp が送る先のスクリプト |
+| `LICENSE` | MITライセンスの全文 |
 | `index.html` `server.js` | このパソコンだけで画面を確認するためのもの |
 
 このパソコンだけで画面を見るときは、`node server.js` を実行し、表示されたURLを開きます。氏名の一覧は `data/store.json` の `roster` です。そのときの記録はスプレッドシートには残りません。
+
+## ライセンス
+
+このリポジトリは [MIT License](LICENSE) です。著作権表示は `Copyright (c) 2026 office-NAKAON` です。
